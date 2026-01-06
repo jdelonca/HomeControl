@@ -1,0 +1,28 @@
+# ~/.config/systemd/user/wol-startup-handler.service
+#
+# Systemd user service for WoL startup handler
+# This runs after the graphical session starts
+#
+# Installation:
+#   1. Create directory: mkdir -p ~/.config/systemd/user/
+#   2. Copy this file to ~/.config/systemd/user/wol-startup-handler.service
+#   3. Edit paths below to match your setup
+#   4. Enable: systemctl --user enable wol-startup-handler.service
+#   5. The service will auto-start on next login
+
+[Unit]
+Description=WoL Startup Handler - Configure TV mode and Steam when woken via WoL
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+
+# Edit this path to your scripts location
+ExecStart=/home/your_username/pc-control-scripts/wol_startup_handler.sh
+
+# Environment for display access
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=graphical-session.target

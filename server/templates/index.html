@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PC Control Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-card-hover: #1a1a25;
+            --accent-cyan: #00d4ff;
+            --accent-magenta: #ff006e;
+            --accent-green: #00ff88;
+            --accent-amber: #ffb700;
+            --accent-red: #ff3366;
+            --text-primary: #f0f0f5;
+            --text-secondary: #8888aa;
+            --border-subtle: #2a2a3a;
+            --glow-cyan: 0 0 30px rgba(0, 212, 255, 0.3);
+            --glow-green: 0 0 30px rgba(0, 255, 136, 0.3);
+            --glow-red: 0 0 30px rgba(255, 51, 102, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background grid */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-glow {
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 30%, rgba(0, 212, 255, 0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 70%, rgba(255, 0, 110, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+            animation: bgPulse 15s ease-in-out infinite alternate;
+        }
+
+        @keyframes bgPulse {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(-5%, -5%) scale(1.1); }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .header h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        /* Status indicator */
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .status-dot.online {
+            background: var(--accent-green);
+            box-shadow: var(--glow-green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.offline {
+            background: var(--accent-red);
+            box-shadow: var(--glow-red);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+
+        .status-label {
+            color: var(--text-secondary);
+        }
+
+        .status-value {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* Control sections */
+        .control-section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            padding-left: 5px;
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        /* Buttons */
+        .control-btn {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 30px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .control-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.02) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: var(--bg-card-hover);
+            transform: translateY(-2px);
+        }
+
+        .control-btn:hover::before {
+            opacity: 1;
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
+        }
+
+        .control-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .control-btn.loading {
+            pointer-events: none;
+        }
+
+        .control-btn.loading .btn-icon {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+
+        .btn-icon {
+            font-size: 2rem;
+            transition: transform 0.3s ease;
+        }
+
+        .btn-label {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .btn-desc {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        /* Button variants */
+        .control-btn.power-on {
+            border-color: rgba(0, 255, 136, 0.3);
+        }
+
+        .control-btn.power-on:hover {
+            border-color: var(--accent-green);
+            box-shadow: var(--glow-green);
+        }
+
+        .control-btn.power-off {
+            border-color: rgba(255, 51, 102, 0.3);
+        }
+
+        .control-btn.power-off:hover {
+            border-color: var(--accent-red);
+            box-shadow: var(--glow-red);
+        }
+
+        .control-btn.display {
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .control-btn.display:hover {
+            border-color: var(--accent-cyan);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .control-btn.steam {
+            border-color: rgba(255, 183, 0, 0.3);
+        }
+
+        .control-btn.steam:hover {
+            border-color: var(--accent-amber);
+            box-shadow: 0 0 30px rgba(255, 183, 0, 0.3);
+        }
+
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            padding: 15px 25px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            color: var(--text-primary);
+            animation: slideIn 0.3s ease;
+            max-width: 350px;
+        }
+
+        .toast.success {
+            border-color: var(--accent-green);
+        }
+
+        .toast.error {
+            border-color: var(--accent-red);
+        }
+
+        .toast.info {
+            border-color: var(--accent-cyan);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px 15px;
+            }
+
+            .status-bar {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .button-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .control-btn {
+                padding: 25px 15px;
+            }
+        }
+
+        /* Confirmation modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .modal h2 {
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 15px;
+            color: var(--accent-amber);
+        }
+
+        .modal p {
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            font-family: 'Outfit', sans-serif;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .modal-btn.cancel {
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+        }
+
+        .modal-btn.cancel:hover {
+            border-color: var(--text-secondary);
+            color: var(--text-primary);
+        }
+
+        .modal-btn.confirm {
+            background: var(--accent-red);
+            border: none;
+            color: white;
+        }
+
+        .modal-btn.confirm:hover {
+            background: #ff1a4d;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow"></div>
+
+    <div class="container">
+        <header class="header">
+            <h1>PC Control</h1>
+            <p class="subtitle">Remote Management System</p>
+        </header>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot" id="statusDot"></div>
+                <span class="status-label">Status:</span>
+                <span class="status-value" id="statusText">Checking...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Display:</span>
+                <span class="status-value" id="displayMode">—</span>
+            </div>
+        </div>
+
+        <section class="control-section">
+            <h2 class="section-title">Power Control</h2>
+            <div class="button-grid">
+                <button class="control-btn power-on" onclick="wakePC()" id="btnWake">
+                    <span class="btn-icon">⏻</span>
+                    <span class="btn-label">Wake PC</span>
+                    <span class="btn-desc">TV mode + Steam</span>
+                </button>
+                <button class="control-btn power-off disabled" onclick="confirmShutdown()" id="btnShutdown">
+                    <span class="btn-icon">⭘</span>
+                    <span class="btn-label">Shutdown</span>
+                    <span class="btn-desc">Power off PC</span>
+                </button>
+            </div>
+        </section>
+
+        <section class="control-section">
+            <h2 class="section-title">Display Configuration</h2>
+            <div class="button-grid">
+                <button class="control-btn display disabled" onclick="setDisplayTV()" id="btnDisplayTV">
+                    <span class="btn-icon">📺</span>
+                    <span class="btn-label">TV Mode</span>
+                    <span class="btn-desc">TV as primary display</span>
+                </button>
+                <button class="control-btn display disabled" onclick="setDisplayMonitor()" id="btnDisplayMonitor">
+                    <span class="btn-icon">🖥️</span>
+                    <span class="btn-label">Monitor Mode</span>
+                    <span class="btn-desc">Desktop monitor only</span>
+                </button>
+            </div>
+        </section>
+
+        <section class="control-section">
+            <h2 class="section-title">TV Control (HDMI-CEC)</h2>
+            <div class="button-grid">
+                <button class="control-btn power-on disabled" onclick="tvOn()" id="btnTvOn">
+                    <span class="btn-icon">📡</span>
+                    <span class="btn-label">TV On</span>
+                    <span class="btn-desc">Power on via CEC</span>
+                </button>
+                <button class="control-btn power-off disabled" onclick="tvOff()" id="btnTvOff">
+                    <span class="btn-icon">📴</span>
+                    <span class="btn-label">TV Off</span>
+                    <span class="btn-desc">Standby via CEC</span>
+                </button>
+            </div>
+        </section>
+
+        <section class="control-section">
+            <h2 class="section-title">Applications</h2>
+            <div class="button-grid">
+                <button class="control-btn steam disabled" onclick="launchSteam()" id="btnSteam">
+                    <span class="btn-icon">🎮</span>
+                    <span class="btn-label">Launch Steam</span>
+                    <span class="btn-desc">Big Picture mode</span>
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Shutdown confirmation modal -->
+    <div class="modal-overlay" id="shutdownModal">
+        <div class="modal">
+            <h2>⚠️ Confirm Shutdown</h2>
+            <p>Are you sure you want to shutdown the PC? This will close all running applications.</p>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+                <button class="modal-btn confirm" onclick="shutdownPC()">Shutdown</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // ========================================================================
+        // State
+        // ========================================================================
+        let isOnline = false;
+
+        // ========================================================================
+        // UI Helpers
+        // ========================================================================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        function setButtonLoading(btnId, loading) {
+            const btn = document.getElementById(btnId);
+            if (loading) {
+                btn.classList.add('loading');
+            } else {
+                btn.classList.remove('loading');
+            }
+        }
+
+        function updateOnlineButtons(online) {
+            const onlineButtons = ['btnShutdown', 'btnDisplayTV', 'btnDisplayMonitor', 'btnTvOn', 'btnTvOff', 'btnSteam'];
+            onlineButtons.forEach(id => {
+                const btn = document.getElementById(id);
+                if (online) {
+                    btn.classList.remove('disabled');
+                } else {
+                    btn.classList.add('disabled');
+                }
+            });
+        }
+
+        // ========================================================================
+        // API Calls
+        // ========================================================================
+        async function fetchStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                isOnline = data.online;
+                const statusDot = document.getElementById('statusDot');
+                const statusText = document.getElementById('statusText');
+                const displayMode = document.getElementById('displayMode');
+
+                if (data.online) {
+                    statusDot.className = 'status-dot online';
+                    statusText.textContent = 'Online';
+                } else {
+                    statusDot.className = 'status-dot offline';
+                    statusText.textContent = 'Offline';
+                }
+
+                displayMode.textContent = data.display_mode || '—';
+                updateOnlineButtons(data.online);
+
+            } catch (error) {
+                console.error('Status check failed:', error);
+            }
+        }
+
+        async function wakePC() {
+            setButtonLoading('btnWake', true);
+            showToast('Sending Wake-on-LAN packet...', 'info');
+
+            try {
+                const response = await fetch('/api/wake', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    // Start polling for status
+                    setTimeout(fetchStatus, 5000);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (error) {
+                showToast('Failed to send wake command', 'error');
+            } finally {
+                setButtonLoading('btnWake', false);
+            }
+        }
+
+        function confirmShutdown() {
+            document.getElementById('shutdownModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('shutdownModal').classList.remove('active');
+        }
+
+        async function shutdownPC() {
+            closeModal();
+            setButtonLoading('btnShutdown', true);
+            showToast('Sending shutdown command...', 'info');
+
+            try {
+                const response = await fetch('/api/shutdown', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast('Shutdown command sent', 'success');
+                    setTimeout(fetchStatus, 3000);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (error) {
+                showToast('Failed to send shutdown command', 'error');
+            } finally {
+                setButtonLoading('btnShutdown', false);
+            }
+        }
+
+        async function setDisplayTV() {
+            setButtonLoading('btnDisplayTV', true);
+            try {
+                const response = await fetch('/api/display/tv', { method: 'POST' });
+                const data = await response.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) fetchStatus();
+            } catch (error) {
+                showToast('Failed to switch display', 'error');
+            } finally {
+                setButtonLoading('btnDisplayTV', false);
+            }
+        }
+
+        async function setDisplayMonitor() {
+            setButtonLoading('btnDisplayMonitor', true);
+            try {
+                const response = await fetch('/api/display/monitor', { method: 'POST' });
+                const data = await response.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+                if (data.success) fetchStatus();
+            } catch (error) {
+                showToast('Failed to switch display', 'error');
+            } finally {
+                setButtonLoading('btnDisplayMonitor', false);
+            }
+        }
+
+        async function tvOn() {
+            setButtonLoading('btnTvOn', true);
+            try {
+                const response = await fetch('/api/tv/on', { method: 'POST' });
+                const data = await response.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+            } catch (error) {
+                showToast('Failed to control TV', 'error');
+            } finally {
+                setButtonLoading('btnTvOn', false);
+            }
+        }
+
+        async function tvOff() {
+            setButtonLoading('btnTvOff', true);
+            try {
+                const response = await fetch('/api/tv/off', { method: 'POST' });
+                const data = await response.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+            } catch (error) {
+                showToast('Failed to control TV', 'error');
+            } finally {
+                setButtonLoading('btnTvOff', false);
+            }
+        }
+
+        async function launchSteam() {
+            setButtonLoading('btnSteam', true);
+            try {
+                const response = await fetch('/api/steam/launch', { method: 'POST' });
+                const data = await response.json();
+                showToast(data.message, data.success ? 'success' : 'error');
+            } catch (error) {
+                showToast('Failed to launch Steam', 'error');
+            } finally {
+                setButtonLoading('btnSteam', false);
+            }
+        }
+
+        // ========================================================================
+        // Initialize
+        // ========================================================================
+        fetchStatus();
+        setInterval(fetchStatus, 10000);  // Poll every 10 seconds
+    </script>
+</body>
+</html>

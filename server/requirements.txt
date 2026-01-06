@@ -1,0 +1,11 @@
+# Flask web framework
+Flask>=2.3.0
+
+# WSGI HTTP Server
+gunicorn>=21.0.0
+
+# Wake-on-LAN magic packet sender
+wakeonlan>=3.0.0
+
+# SSH client for remote command execution
+paramiko>=3.0.0

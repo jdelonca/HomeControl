@@ -1,0 +1,45 @@
+# /etc/systemd/system/pc-control.service
+# 
+# Systemd service file for PC Control Flask application
+# 
+# Installation:
+#   1. Copy this file to /etc/systemd/system/pc-control.service
+#   2. Edit the paths and user below to match your setup
+#   3. Run: sudo systemctl daemon-reload
+#   4. Run: sudo systemctl enable pc-control
+#   5. Run: sudo systemctl start pc-control
+
+[Unit]
+Description=PC Control Flask Application
+After=network.target
+
+[Service]
+# Change these to match your setup
+User=your_username
+Group=www-data
+WorkingDirectory=/home/your_username/pc-control
+
+# Path to virtual environment
+Environment="PATH=/home/your_username/pc-control/venv/bin"
+
+# Gunicorn command
+# - workers: number of worker processes (2-4 x CPU cores is recommended)
+# - bind: use unix socket for nginx communication
+# - timeout: worker timeout in seconds
+ExecStart=/home/your_username/pc-control/venv/bin/gunicorn \
+    --workers 2 \
+    --bind unix:pc-control.sock \
+    --timeout 120 \
+    -m 007 \
+    wsgi:app
+
+# Restart policy
+Restart=always
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
