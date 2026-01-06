@@ -15,8 +15,18 @@ TV_RESOLUTION="1920x1080"   # TV resolution
 TV_REFRESH="60"             # TV refresh rate
 
 # Get the display (for headless SSH access)
-export DISPLAY=:0
-export XAUTHORITY=/home/$USER/.Xauthority
+# Auto-detect the DISPLAY and XAUTHORITY
+if [ -z "$DISPLAY" ]; then
+    export DISPLAY=:1
+fi
+if [ -z "$XAUTHORITY" ]; then
+    # Try GDM location first (most common for GNOME)
+    if [ -f "/run/user/$(id -u)/gdm/Xauthority" ]; then
+        export XAUTHORITY="/run/user/$(id -u)/gdm/Xauthority"
+    elif [ -f "$HOME/.Xauthority" ]; then
+        export XAUTHORITY="$HOME/.Xauthority"
+    fi
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
