@@ -6,6 +6,28 @@ A complete solution for remotely controlling your Linux PC:
 - Display switching (TV / Monitor modes)
 - TV power control via HDMI-CEC
 
+## Quick Start
+
+**For most users, automated setup is recommended:**
+
+1. **On your Target PC (gaming PC):**
+   ```bash
+   cd target-pc/
+   ./setup.sh
+   ```
+   Note the MAC address displayed at the end - you'll need it for step 2.
+
+2. **On your Control Server (always-on host):**
+   ```bash
+   cd server/
+   ./setup.sh
+   ```
+   Enter the MAC address from step 1 when prompted.
+
+3. **Done!** Access your control panel at `http://your-server-ip/`
+
+**For manual setup or troubleshooting**, see the detailed sections below.
+
 ## Architecture
 
 ```
@@ -31,15 +53,44 @@ A complete solution for remotely controlling your Linux PC:
 
 ## Part 1: Target PC Setup
 
-### 1.1 Enable Wake-on-LAN
+### Option A: Automated Setup (Recommended)
 
-#### BIOS/UEFI Settings
+The easiest way to set up the target PC is using the automated setup script:
+
+```bash
+cd target-pc/
+./setup.sh
+```
+
+The script will:
+1. Prompt you for configuration (display outputs, network interface, etc.)
+2. Auto-detect your network interfaces and MAC address
+3. Auto-detect connected displays and resolutions
+4. Install system dependencies (ethtool, cec-utils)
+5. Configure Wake-on-LAN persistently
+6. Generate and install all control scripts with your configuration
+7. Set up the startup handler (systemd or desktop autostart)
+8. Configure passwordless sudo for shutdown
+9. Run basic tests and provide your MAC address
+
+**Important**: After running the script:
+1. Enable Wake-on-LAN in your BIOS/UEFI settings
+2. Note your MAC address (displayed at the end) - you'll need it for the control server
+3. Test the scripts manually to ensure display switching works
+
+### Option B: Manual Setup
+
+If you prefer manual installation or need to troubleshoot:
+
+#### 1.1 Enable Wake-on-LAN
+
+**BIOS/UEFI Settings:**
 1. Enter BIOS (usually F2, F12, or DEL at boot)
 2. Find Power Management or Advanced settings
 3. Enable "Wake on LAN" or "Wake on PCI/PCIE"
 4. Save and exit
 
-#### Linux Configuration
+**Linux Configuration:**
 ```bash
 # Install ethtool
 sudo apt install ethtool
@@ -68,14 +119,14 @@ EOF
 sudo systemctl restart systemd-networkd
 ```
 
-#### Alternative: NetworkManager
+**Alternative: NetworkManager:**
 ```bash
 # Enable WoL via nmcli
 nmcli connection show  # Find your connection name
 nmcli connection modify "Wired connection 1" 802-3-ethernet.wake-on-lan magic
 ```
 
-### 1.2 Install CEC Utilities
+#### 1.2 Install CEC Utilities
 
 ```bash
 # For HDMI-CEC control
@@ -93,7 +144,7 @@ echo 'scan' | cec-client -s -d 1
 
 **Note**: Most Intel GPUs don't support CEC natively. You may need a Pulse-Eight USB-CEC adapter.
 
-### 1.3 Install Scripts on Target PC
+#### 1.3 Install Scripts on Target PC
 
 ```bash
 # Create scripts directory
@@ -101,8 +152,8 @@ mkdir -p ~/pc-control-scripts
 cd ~/pc-control-scripts
 
 # Copy the scripts from the target-pc/scripts/ directory in this repository
-# (set_display_tv.sh, set_display_monitor.sh, tv_on.sh, tv_off.sh,
-#  launch_steam.sh, wol_startup_handler.sh)
+REPO_DIR=/path/to/HomeControl
+cp "$REPO_DIR/target-pc/scripts"/* ~/pc-control-scripts/
 
 # Make them executable
 chmod +x *.sh
@@ -112,7 +163,7 @@ chmod +x *.sh
 xrandr --query
 ```
 
-### 1.4 Configure Display Scripts
+#### 1.4 Configure Display Scripts
 
 Edit `set_display_tv.sh` and `set_display_monitor.sh`:
 
@@ -127,15 +178,15 @@ xrandr --query | grep " connected"
 # Update the scripts with your actual output names
 ```
 
-### 1.5 Setup Startup Handler
+#### 1.5 Setup Startup Handler
 
-#### Option A: Systemd User Service (Recommended)
+**Option A: Systemd User Service (Recommended):**
 ```bash
 # Create systemd user directory
 mkdir -p ~/.config/systemd/user/
 
 # Copy the service file from target-pc/ directory
-cp wol-startup-handler.service ~/.config/systemd/user/
+cp /path/to/HomeControl/target-pc/wol-startup-handler.service ~/.config/systemd/user/
 
 # Edit paths in the service file
 nano ~/.config/systemd/user/wol-startup-handler.service
@@ -144,29 +195,34 @@ nano ~/.config/systemd/user/wol-startup-handler.service
 systemctl --user enable wol-startup-handler.service
 ```
 
-#### Option B: Desktop Autostart
+**Option B: Desktop Autostart:**
 ```bash
 # Create autostart directory
 mkdir -p ~/.config/autostart/
 
-# Copy the desktop file
-cp wol-startup-handler.desktop ~/.config/autostart/
+# Create the desktop file
+cat > ~/.config/autostart/wol-startup-handler.desktop << EOF
+[Desktop Entry]
+Type=Application
+Name=WoL Startup Handler
+Exec=/home/your_username/pc-control-scripts/wol_startup_handler.sh
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+EOF
 
-# Edit paths
-nano ~/.config/autostart/wol-startup-handler.desktop
+chmod +x ~/.config/autostart/wol-startup-handler.desktop
 ```
 
-### 1.6 Configure Passwordless Sudo for Shutdown
+#### 1.6 Configure Passwordless Sudo for Shutdown
 
 ```bash
-# Edit sudoers
-sudo visudo
-
-# Add this line (replace your_username):
-your_username ALL=(ALL) NOPASSWD: /usr/bin/systemctl poweroff
+# Create sudoers file (safer than editing main sudoers)
+echo "$USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl poweroff" | sudo tee /etc/sudoers.d/pc-control-shutdown
+sudo chmod 0440 /etc/sudoers.d/pc-control-shutdown
 ```
 
-### 1.7 Get Target PC Information
+#### 1.7 Get Target PC Information
 
 ```bash
 # MAC address (needed for WoL)
@@ -180,7 +236,35 @@ ip addr show | grep "inet "
 
 ## Part 2: Control Server Setup
 
-### 2.1 Prerequisites
+### Option A: Automated Setup (Recommended)
+
+The easiest way to set up the control server is using the automated setup script:
+
+```bash
+cd server/
+./setup.sh
+```
+
+The script will:
+1. Prompt you for all necessary configuration (MAC address, IP, etc.)
+2. Install system dependencies (Python, nginx, etc.)
+3. Generate and configure SSH keys
+4. Install the Flask application in `/var/www/pc-control`
+5. Configure the systemd service
+6. Set up nginx reverse proxy
+7. Configure firewall rules (if using UFW)
+8. Run basic tests
+
+**Note**: The script will prompt you for the SSH key to be copied to the target PC. You can do this in a separate terminal:
+```bash
+ssh-copy-id -i ~/.ssh/pc_control_key your_username@192.168.1.100
+```
+
+### Option B: Manual Setup
+
+If you prefer manual installation or need to troubleshoot:
+
+#### 2.1 Prerequisites
 
 ```bash
 # Update system
@@ -190,20 +274,20 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install python3 python3-pip python3-venv nginx -y
 ```
 
-### 2.2 Setup SSH Key Authentication
+#### 2.2 Setup SSH Key Authentication
 
 ```bash
 # On the CONTROL SERVER, generate SSH key
 ssh-keygen -t ed25519 -f ~/.ssh/pc_control_key -N ""
 
 # Copy key to TARGET PC
-ssh-copy-id -i ~/.ssh/pc_control_key your_username@192.168.1.100
+ssh-copy-id -i ~/.ssh/pc_control_key.pub your_username@192.168.1.100
 
 # Test connection (should work without password)
 ssh -i ~/.ssh/pc_control_key your_username@192.168.1.100 "echo 'SSH works!'"
 ```
 
-### 2.3 Install Flask Application
+#### 2.3 Install Flask Application
 
 ```bash
 # Create application directory
@@ -211,7 +295,8 @@ sudo mkdir -p /var/www/pc-control
 sudo chown $USER:www-data /var/www/pc-control
 
 # Copy server files from this repository's server/ directory
-cp -r server/* /var/www/pc-control/
+REPO_DIR=/path/to/HomeControl
+cp -r "$REPO_DIR/server"/* /var/www/pc-control/
 
 cd /var/www/pc-control
 
@@ -221,9 +306,11 @@ source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
+
+deactivate
 ```
 
-### 2.4 Configure the Application
+#### 2.4 Configure the Application
 
 Edit `/var/www/pc-control/app.py` and update the `CONFIG` dictionary:
 
@@ -233,18 +320,42 @@ CONFIG = {
     "target_ip": "192.168.1.100",           # Your target PC's IP
     "target_user": "your_username",         # SSH username
     "ssh_key_path": "/home/server_user/.ssh/pc_control_key",
+    "ssh_port": 22,
     "broadcast_ip": "192.168.1.255",        # Your network's broadcast
     "scripts_path": "/home/your_username/pc-control-scripts",
 }
 ```
 
-### 2.5 Setup Systemd Service
+#### 2.5 Setup Systemd Service
 
 ```bash
-# Copy service file from server/config/ directory
-sudo cp /var/www/pc-control/config/pc-control.service /etc/systemd/system/
+# Create systemd service file
+sudo tee /etc/systemd/system/pc-control.service > /dev/null << 'EOF'
+[Unit]
+Description=PC Control Flask Application
+After=network.target
 
-# Edit paths in service file
+[Service]
+User=your_username
+Group=www-data
+WorkingDirectory=/var/www/pc-control
+Environment="PATH=/var/www/pc-control/venv/bin"
+ExecStart=/var/www/pc-control/venv/bin/gunicorn \
+    --workers 2 \
+    --bind unix:/var/www/pc-control/pc-control.sock \
+    --timeout 120 \
+    -m 007 \
+    wsgi:app
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Edit the User field to match your username
 sudo nano /etc/systemd/system/pc-control.service
 
 # Enable and start
@@ -256,14 +367,37 @@ sudo systemctl start pc-control
 sudo systemctl status pc-control
 ```
 
-### 2.6 Configure Nginx
+#### 2.6 Configure Nginx
 
 ```bash
-# Copy nginx config from server/config/ directory
-sudo cp /var/www/pc-control/config/nginx-pc-control.conf /etc/nginx/sites-available/pc-control
+# Create nginx configuration
+sudo tee /etc/nginx/sites-available/pc-control > /dev/null << 'EOF'
+server {
+    listen 80;
+    server_name _;
 
-# Edit the config (update paths and server_name)
-sudo nano /etc/nginx/sites-available/pc-control
+    access_log /var/log/nginx/pc-control-access.log;
+    error_log /var/log/nginx/pc-control-error.log;
+
+    location / {
+        proxy_pass http://unix:/var/www/pc-control/pc-control.sock;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Increase timeout for WoL operations
+        proxy_read_timeout 180s;
+        proxy_connect_timeout 180s;
+        proxy_send_timeout 180s;
+    }
+
+    location /static {
+        alias /var/www/pc-control/static;
+        expires 30d;
+    }
+}
+EOF
 
 # Enable site
 sudo ln -s /etc/nginx/sites-available/pc-control /etc/nginx/sites-enabled/
@@ -275,12 +409,12 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 2.7 Firewall Configuration
+#### 2.7 Firewall Configuration
 
 ```bash
 # If using UFW
 sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp  # If using HTTPS
+sudo ufw allow 443/tcp  # If using HTTPS later
 ```
 
 ---
@@ -371,6 +505,7 @@ HomeControl/
 ├── README.md                    # Project overview
 ├── SETUP_GUIDE.md              # This setup guide
 ├── server/                     # Control server files
+│   ├── setup.sh                # Automated setup script
 │   ├── app.py                  # Flask application
 │   ├── wsgi.py                 # WSGI entry point
 │   ├── requirements.txt        # Python dependencies
@@ -380,6 +515,7 @@ HomeControl/
 │       ├── pc-control.service  # Systemd service template
 │       └── nginx-pc-control.conf  # Nginx config template
 └── target-pc/                  # Target PC files
+    ├── setup.sh                # Automated setup script
     ├── wol-startup-handler.service  # Startup service template
     └── scripts/
         ├── set_display_tv.sh
