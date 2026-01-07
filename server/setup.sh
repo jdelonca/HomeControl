@@ -127,7 +127,7 @@ if [ "$GENERATE_SSH_KEY" = true ]; then
     echo "Run this command now (in another terminal if needed):"
     echo -e "${BLUE}ssh-copy-id -i ${SSH_KEY_PATH}.pub $TARGET_USER@$TARGET_IP${NC}"
     echo
-    read -p "$(echo -e ${GREEN}Press Enter once you've copied the SSH key...${NC})"
+    read -p "$(echo -e ${GREEN}Press Enter once you ve copied the SSH key...${NC})"
 fi
 
 # Test SSH connection
@@ -278,7 +278,7 @@ server {
     }
 
     location /static {
-        alias $INSTALL_DIR/static;
+        alias $INSTALL_DIR/templates;
         expires 30d;
     }
 }
@@ -286,8 +286,23 @@ EOF
 
 sudo mv /tmp/nginx-pc-control /etc/nginx/sites-available/pc-control
 
-# Enable site
+# Enable pc-control site
 sudo ln -sf /etc/nginx/sites-available/pc-control /etc/nginx/sites-enabled/
+
+# Check if default nginx site is enabled
+if [ -L /etc/nginx/sites-enabled/default ]; then
+    echo
+    echo -e "${YELLOW}Default nginx welcome page is currently enabled.${NC}"
+    echo "This will conflict with the PC Control interface."
+    read -p "$(echo -e ${GREEN}Disable default nginx site? [Y/n]: ${NC})" disable_default
+    if [[ ! "$disable_default" =~ ^[Nn]$ ]]; then
+        sudo rm -f /etc/nginx/sites-enabled/default
+        echo -e "${GREEN}✓ Default nginx site disabled${NC}"
+    else
+        echo -e "${YELLOW}⚠ Warning: You may see the nginx welcome page instead of PC Control${NC}"
+        echo -e "${YELLOW}  To fix later: sudo rm /etc/nginx/sites-enabled/default && sudo systemctl reload nginx${NC}"
+    fi
+fi
 
 # Test nginx configuration
 if sudo nginx -t 2>/dev/null; then
@@ -307,7 +322,7 @@ print_section "Step 8: Firewall Configuration"
 
 if command -v ufw &> /dev/null; then
     echo "Detected UFW firewall"
-    read -p "$(echo -e ${GREEN}Configure UFW to allow HTTP (port 80)? [Y/n]: ${NC})" configure_ufw
+    read -p "$(echo -e ${GREEN}Configure UFW to allow HTTP '(port 80)'? [Y/n]: ${NC})" configure_ufw
     if [[ ! "$configure_ufw" =~ ^[Nn]$ ]]; then
         sudo ufw allow 80/tcp
         echo -e "${GREEN}✓ Firewall configured${NC}"

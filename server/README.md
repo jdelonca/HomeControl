@@ -68,6 +68,11 @@ Common issues:
 1. Check if service is running: `sudo systemctl status pc-control`
 2. Check nginx: `sudo systemctl status nginx`
 3. Check firewall: `sudo ufw status`
+4. **Seeing nginx welcome page instead of PC Control?**
+   - The default nginx site may still be enabled
+   - Disable it: `sudo rm /etc/nginx/sites-enabled/default`
+   - Reload nginx: `sudo systemctl reload nginx`
+   - The setup script now handles this automatically, but if you installed manually or had nginx previously configured, you may need to disable the default site
 
 ### Wake-on-LAN not working
 1. Test from the server:
