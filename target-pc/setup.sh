@@ -339,9 +339,50 @@ if [ -z "$DISPLAY" ]; then
     export DISPLAY=__DISPLAY_VAR__
 fi
 
+# Auto-detect XAUTHORITY
+if [ -z "$XAUTHORITY" ]; then
+    if [ -f "/run/user/$(id -u)/gdm/Xauthority" ]; then
+        export XAUTHORITY="/run/user/$(id -u)/gdm/Xauthority"
+    elif [ -f "$HOME/.Xauthority" ]; then
+        export XAUTHORITY="$HOME/.Xauthority"
+    fi
+fi
+
 echo "Launching Steam in Big Picture mode..."
-nohup steam -bigpicture > /dev/null 2>&1 &
-echo "Steam launched"
+
+# Find Steam executable
+STEAM_PATH=$(command -v steam)
+if [ -z "$STEAM_PATH" ]; then
+    echo "ERROR: Steam executable not found in PATH"
+    exit 1
+fi
+
+# Check if Steam is already running
+if pgrep -x "steam" > /dev/null; then
+    echo "Steam is already running, switching to Big Picture mode"
+    "$STEAM_PATH" steam://open/bigpicture &
+else
+    # Ensure D-Bus session is available (critical for Steam from systemd)
+    if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+        DBUS_FILE="/run/user/$(id -u)/bus"
+        if [ -S "$DBUS_FILE" ]; then
+            export DBUS_SESSION_BUS_ADDRESS="unix:path=$DBUS_FILE"
+        fi
+    fi
+
+    # Launch Steam with systemd-run for proper session integration
+    if command -v systemd-run &> /dev/null; then
+        systemd-run --user --scope --quiet \
+            env DISPLAY="$DISPLAY" \
+                XAUTHORITY="$XAUTHORITY" \
+                DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" \
+            "$STEAM_PATH" -bigpicture
+    else
+        nohup "$STEAM_PATH" -bigpicture >/dev/null 2>&1 </dev/null &
+        disown
+    fi
+    echo "Steam launched"
+fi
 EOFSCRIPT
 
 sed -i "s|__DISPLAY_VAR__|$DISPLAY_VAR|g" "$SCRIPTS_DIR/launch_steam.sh"
@@ -414,8 +455,7 @@ After=graphical-session.target
 [Service]
 Type=oneshot
 RemainAfterExit=no
-ExecStart=$SCRIPTS_DIR/wol_startup_handler.sh
-Environment=DISPLAY=$DISPLAY_VAR
+ExecStart=/bin/bash -c 'export DISPLAY=$DISPLAY_VAR; export XAUTHORITY=\${XAUTHORITY:-/run/user/\$(id -u)/gdm/Xauthority}; $SCRIPTS_DIR/wol_startup_handler.sh'
 
 [Install]
 WantedBy=graphical-session.target
