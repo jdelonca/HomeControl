@@ -182,13 +182,60 @@ else
 fi
 
 # ============================================================================
-# Step 4: CEC Utilities Check
+# Step 4: CEC Utilities Check and USB Permissions
 # ============================================================================
 
 print_section "Step 4: Checking HDMI-CEC Support"
 
-if ls /dev/cec* &> /dev/null; then
-    echo -e "${GREEN}✓ CEC device found:${NC}"
+# Check for USB CEC adapters (Pulse-Eight)
+echo "Checking for USB CEC adapters..."
+if lsusb | grep -q "2548:100[12]"; then
+    echo -e "${GREEN}✓ Pulse-Eight USB-CEC adapter detected${NC}"
+
+    # Add user to dialout group for serial port access
+    echo "Adding user to 'dialout' group for serial device access..."
+    if ! groups "$USER" | grep -q dialout; then
+        sudo usermod -aG dialout "$USER"
+        echo -e "${GREEN}✓ User added to dialout group${NC}"
+        echo -e "${YELLOW}⚠ You need to log out and log back in for group changes to take effect${NC}"
+        NEED_RELOGIN=true
+    else
+        echo -e "${GREEN}✓ User already in dialout group${NC}"
+    fi
+
+    # Configure udev rules for passwordless USB CEC access
+    echo "Setting up udev rules for USB CEC access..."
+
+    UDEV_RULE_FILE="/etc/udev/rules.d/99-cec.rules"
+    sudo tee "$UDEV_RULE_FILE" > /dev/null << EOF
+# udev rules for Pulse-Eight USB-CEC Adapter
+# The adapter creates /dev/ttyACM* devices that need dialout group access
+SUBSYSTEM=="usb", ATTR{idVendor}=="2548", ATTR{idProduct}=="1001", OWNER="$USER", GROUP="dialout", MODE="0660"
+SUBSYSTEM=="usb", ATTR{idVendor}=="2548", ATTR{idProduct}=="1002", OWNER="$USER", GROUP="dialout", MODE="0660"
+# Ensure the serial device is also accessible
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2548", ATTRS{idProduct}=="100[12]", OWNER="$USER", GROUP="dialout", MODE="0660"
+EOF
+
+    # Reload udev rules
+    sudo udevadm control --reload-rules
+    sudo udevadm trigger --subsystem-match=usb
+    sudo udevadm trigger --subsystem-match=tty
+
+    echo -e "${GREEN}✓ udev rules installed${NC}"
+    echo "USB CEC adapter will be accessible without sudo"
+
+    # Test CEC connection
+    echo "Testing CEC connection..."
+    sleep 2
+    if timeout 5 bash -c 'echo "scan" | cec-client -s -d 1' &> /dev/null; then
+        echo -e "${GREEN}✓ CEC is working${NC}"
+    else
+        echo -e "${YELLOW}⚠ CEC scan failed - you may need to unplug and replug the USB adapter${NC}"
+        echo "Or reboot the system for udev rules to take full effect"
+    fi
+
+elif ls /dev/cec* &> /dev/null; then
+    echo -e "${GREEN}✓ CEC device found (kernel support):${NC}"
     ls -l /dev/cec*
 
     echo "Testing CEC connection..."
@@ -316,17 +363,46 @@ echo "Creating CEC control scripts..."
 # tv_on.sh
 cat > "$SCRIPTS_DIR/tv_on.sh" << 'EOFSCRIPT'
 #!/bin/bash
-# Turn on TV via HDMI-CEC
-echo "Turning on TV..."
-echo "on 0" | cec-client -s -d 1
+# tv_on.sh
+# Turn on TV via HDMI-CEC and switch to this HDMI input
+
+echo "Turning on TV via HDMI-CEC..."
+
+if command -v cec-client &> /dev/null; then
+    # Power on TV
+    echo 'on 0' | cec-client -s -d 1
+
+    # Wait for TV to power on and be ready
+    sleep 5
+
+    # Make this device the active source (switches TV to this HDMI input)
+    echo 'as' | cec-client -s -d 1
+
+    echo "TV powered on and input switched"
+    exit 0
+fi
+
+echo "Error: cec-client not found. Install with: sudo apt install cec-utils"
+exit 1
 EOFSCRIPT
 
 # tv_off.sh
 cat > "$SCRIPTS_DIR/tv_off.sh" << 'EOFSCRIPT'
 #!/bin/bash
-# Turn off TV via HDMI-CEC
-echo "Turning off TV..."
-echo "standby 0" | cec-client -s -d 1
+# tv_off.sh
+# Turn off TV (standby) via HDMI-CEC
+
+echo "Turning off TV via HDMI-CEC..."
+
+if command -v cec-client &> /dev/null; then
+    # Put TV into standby mode
+    echo 'standby 0' | cec-client -s -d 1
+    echo "TV standby command sent"
+    exit 0
+fi
+
+echo "Error: cec-client not found. Install with: sudo apt install cec-utils"
+exit 1
 EOFSCRIPT
 
 # launch_steam.sh

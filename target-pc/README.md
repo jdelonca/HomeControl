@@ -105,17 +105,50 @@ If you prefer manual setup or need to troubleshoot, see [SETUP_GUIDE.md](../SETU
 
 ### CEC not working
 
-1. **Check for CEC device:**
+1. **Check for USB CEC adapter:**
    ```bash
-   ls /dev/cec*
+   lsusb | grep 2548
+   ```
+   Should show Pulse-Eight adapter if connected.
+
+2. **Check if you're in the dialout group:**
+   ```bash
+   groups | grep dialout
+   ```
+   If not, add yourself:
+   ```bash
+   sudo usermod -aG dialout $USER
+   ```
+   **IMPORTANT:** Log out and log back in for group changes to take effect!
+
+3. **Check udev rules (for USB adapters):**
+   ```bash
+   ls -l /etc/udev/rules.d/99-cec.rules
+   ```
+   The setup script automatically creates this for passwordless access.
+
+4. **Check serial device permissions:**
+   ```bash
+   ls -l /dev/ttyACM0
+   ```
+   Should show `crw-rw---- 1 homeuser dialout`
+
+5. **If you added the adapter after setup, reload udev:**
+   ```bash
+   sudo udevadm control --reload-rules
+   sudo udevadm trigger --subsystem-match=usb
+   sudo udevadm trigger --subsystem-match=tty
+   # Or unplug/replug the USB adapter
    ```
 
-2. **Test CEC:**
+6. **Test CEC:**
    ```bash
    echo 'scan' | cec-client -s -d 1
    ```
 
-3. **Note:** Most Intel GPUs don't support CEC. You may need a Pulse-Eight USB-CEC adapter.
+7. **Note:** Most Intel GPUs don't support CEC natively. The Pulse-Eight USB-CEC adapter is the recommended solution.
+
+8. **Security:** The udev rule restricts CEC adapter access to your user and dialout group (not MODE="0666" which would allow all users).
 
 ### Startup handler not running
 
